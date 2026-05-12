@@ -6,6 +6,7 @@
 #define QBDIRECORDER_VM_H
 #include "QBDI.h"
 #include "QBDI/State.h"
+#include "TraceConfig.h"
 #include "logger.h"
 #include <sstream>
 #include "shadowhook.h"
@@ -40,6 +41,9 @@ extern int bufsize ;
 extern bool debugInsn;
 void setBufferSize(int);
 void enableDebugInsn(bool);
+void configureTraceFilter(const TraceFilterConfig& filter);
+void clearTraceFilter();
+bool shouldTraceArguments(const size_t regs[], size_t argc);
 
 void sync_regs(size_t* regs,size_t pc,QBDI::GPRState* qbdi_state);
 

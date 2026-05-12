@@ -27,6 +27,7 @@ using namespace QBDI;
 g_trace_data* _g_trace_data = nullptr;
 int bufsize = 0x1000000;
 bool debugInsn = false;
+TraceFilterConfig g_trace_filter{};
 func_arg_0 ori_arg0{};
 func_arg_1 ori_arg1{};
 func_arg_2 ori_arg2{};
@@ -42,6 +43,45 @@ void setBufferSize(int size)
 void enableDebugInsn(bool enable)
 {
     debugInsn = enable;
+}
+
+void configureTraceFilter(const TraceFilterConfig& filter)
+{
+    g_trace_filter = filter;
+}
+
+void clearTraceFilter()
+{
+    g_trace_filter = {};
+}
+
+bool shouldTraceArguments(const size_t regs[], size_t argc)
+{
+    if (!g_trace_filter.enabled) {
+        return true;
+    }
+    if (g_trace_filter.arg_index < 0 || static_cast<size_t>(g_trace_filter.arg_index) >= argc) {
+        return false;
+    }
+
+    size_t current = regs[g_trace_filter.arg_index];
+    switch (g_trace_filter.op) {
+        case TraceFilterOp::Eq:
+            return current == g_trace_filter.value;
+        case TraceFilterOp::Ne:
+            return current != g_trace_filter.value;
+        case TraceFilterOp::Gt:
+            return current > g_trace_filter.value;
+        case TraceFilterOp::Ge:
+            return current >= g_trace_filter.value;
+        case TraceFilterOp::Lt:
+            return current < g_trace_filter.value;
+        case TraceFilterOp::Le:
+            return current <= g_trace_filter.value;
+        case TraceFilterOp::None:
+        default:
+            return true;
+    }
 }
 
 void sync_regs(size_t* regs, size_t pc,QBDI::GPRState* qbdi_state)
@@ -142,6 +182,9 @@ size_t hook_and_trace_arg0()
 {
     size_t regs[31] = {0};
     save_regs(regs);
+    if (!shouldTraceArguments(regs, 0)) {
+        return ori_arg0();
+    }
     size_t result = trace(regs);
     _g_trace_data->hooktask = shadowhook_hook_func_addr((void*)(_g_trace_data->start + _g_trace_data->target),
                                                         (void*)(hook_and_trace_arg0),
@@ -151,11 +194,12 @@ size_t hook_and_trace_arg0()
 
 size_t hook_and_trace_arg1(size_t x0)
 {
-    //对参数x0进行解析过滤,不符合条件的直接调用原函数返回
-    //return ori_arg1(x0);
     size_t regs[31] = {0};
     save_regs(regs);
     regs[0] = x0;
+    if (!shouldTraceArguments(regs, 1)) {
+        return ori_arg1(x0);
+    }
     size_t result = trace(regs);
     _g_trace_data->hooktask = shadowhook_hook_func_addr((void*)(_g_trace_data->start + _g_trace_data->target),
                                                         (void*)(hook_and_trace_arg1),
@@ -165,12 +209,13 @@ size_t hook_and_trace_arg1(size_t x0)
 
 size_t hook_and_trace_arg2(size_t x0,size_t x1)
 {
-    //对参数x0,x1进行解析过滤,不符合条件的直接调用原函数返回
-    //return ori_arg2(x0,x1);
     size_t regs[31] = {0};
     save_regs(regs);
     regs[0] = x0;
     regs[1] = x1;
+    if (!shouldTraceArguments(regs, 2)) {
+        return ori_arg2(x0, x1);
+    }
     size_t result = trace(regs);
     _g_trace_data->hooktask = shadowhook_hook_func_addr((void*)(_g_trace_data->start + _g_trace_data->target),
                                                         (void*)(hook_and_trace_arg2),
@@ -180,13 +225,14 @@ size_t hook_and_trace_arg2(size_t x0,size_t x1)
 
 size_t hook_and_trace_arg3(size_t x0,size_t x1,size_t x2)
 {
-    //对参数x0,x1进行解析过滤,不符合条件的直接调用原函数返回
-    //return ori_arg3(x0,x1,x2);
     size_t regs[31] = {0};
     save_regs(regs);
     regs[0] = x0;
     regs[1] = x1;
     regs[2] = x2;
+    if (!shouldTraceArguments(regs, 3)) {
+        return ori_arg3(x0, x1, x2);
+    }
     size_t result = trace(regs);
     _g_trace_data->hooktask = shadowhook_hook_func_addr((void*)(_g_trace_data->start + _g_trace_data->target),
                                                         (void*)(hook_and_trace_arg3),
@@ -196,18 +242,15 @@ size_t hook_and_trace_arg3(size_t x0,size_t x1,size_t x2)
 
 size_t hook_and_trace_arg4(size_t x0,size_t x1,size_t x2,size_t x3)
 {
-    //对参数x0,x1进行解析过滤,不符合条件的直接调用原函数返回
-    //return ori_arg4(x0,x1,x2,x3);
-    if(x2 != 0x975dbf9a)
-    {
-        return ori_arg4(x0,x1,x2,x3);
-    }
     size_t regs[31] = {0};
     save_regs(regs);
     regs[0] = x0;
     regs[1] = x1;
     regs[2] = x2;
     regs[3] = x3;
+    if (!shouldTraceArguments(regs, 4)) {
+        return ori_arg4(x0, x1, x2, x3);
+    }
     size_t result = trace(regs);
     _g_trace_data->hooktask = shadowhook_hook_func_addr((void*)(_g_trace_data->start + _g_trace_data->target),
                                                         (void*)(hook_and_trace_arg4),
@@ -254,9 +297,8 @@ bool checkLibcTrace_pre(QBDI::VM *vm, QBDI::GPRState *gprState,size_t target)
 
 bool checkJniCall_pre(QBDI::VM *vm, QBDI::GPRState *gprState,size_t target)
 {
-    if(pJFunc == nullptr)
+    if(pJFunc == nullptr || _g_jni_trace == nullptr)
     {
-        LOGE("checkJniCall,pJFunc not init");
         return false;
     }
     auto it = _g_jni_trace->map.find(target);

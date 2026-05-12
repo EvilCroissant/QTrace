@@ -38,6 +38,8 @@ aux_source_directory(hook HOOK_SOURCES)
 aux_source_directory(third THIRD_SOURCES)
 set(PROJECT_SOURCES
     ${THIRD_SOURCES}
+    JsonLite.cpp
+    TraceConfig.cpp
     native_main.cpp
     vm.cpp
     jnitrace.cpp

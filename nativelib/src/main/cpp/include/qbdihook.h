@@ -6,6 +6,7 @@
 #define QBDI_QBDIHOOK_H
 
 #include "vm.h"
+#include <string>
 #include <unordered_map>
 
 typedef void (*TraceCallBack)(QBDI::VM *vm, QBDI::GPRState *gprState);
@@ -26,9 +27,11 @@ void initHookData();
 
 void addHook(size_t addr,TraceCallBack callback);
 void addHook(size_t addr,TraceCallBack callback,const size_t * ignorefrom,int ignorenum);
+bool addNamedHook(size_t addr, const std::string& handler_name, std::string& error);
 
 void addQBDIHook(size_t addr,QBDIHookFunc* callback);
 
-//添加自定义hook
+// 兼容旧示例的别名
 void hook_0x71DD54(QBDI::VM *vm, QBDI::GPRState *gprState);
+void hook_base64(QBDI::VM *vm, QBDI::GPRState *gprState);
 #endif //QBDI_QBDIHOOK_H

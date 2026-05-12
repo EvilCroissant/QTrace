@@ -6,11 +6,12 @@
 #include "logger.h"
 #include "HookUtils.h"
 #include "jnitrace.h"
+#include <cstdlib>
+#include <cstring>
 
 QBDIHookData*  _g_hook_data = nullptr;
 
-
-void hook_0x71DD54(QBDI::VM *vm, QBDI::GPRState *gprState)
+void hook_base64(QBDI::VM *vm, QBDI::GPRState *gprState)
 {
     size_t input = QBDI_GPR_GET(gprState,3);
     size_t len = QBDI_GPR_GET(gprState,4);
@@ -24,6 +25,11 @@ void hook_0x71DD54(QBDI::VM *vm, QBDI::GPRState *gprState)
     appendlogendl();
     free(hex);
     free(base64);
+}
+
+void hook_0x71DD54(QBDI::VM *vm, QBDI::GPRState *gprState)
+{
+    hook_base64(vm, gprState);
 }
 
 void initHookData()
@@ -69,4 +75,20 @@ void addQBDIHook(size_t addr,QBDIHookFunc* callback)
     }
     _g_hook_data->hookMap[addr] = callback;
     LOGE("qbdi hook: %p install",(void*)addr);
+}
+
+bool addNamedHook(size_t addr, const std::string& handler_name, std::string& error)
+{
+    TraceCallBack callback = nullptr;
+    if (handler_name == "base64") {
+        callback = hook_base64;
+    }
+
+    if (callback == nullptr) {
+        error = "unsupported custom hook handler: " + handler_name;
+        return false;
+    }
+
+    addHook(addr, callback);
+    return true;
 }
