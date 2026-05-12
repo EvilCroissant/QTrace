@@ -43,6 +43,7 @@ struct MapItemInfo {
 };
 
 MapItemInfo getSoBaseAddress(const char *libpath, const char *name);
+MapItemInfo getLoadedSoInfoByName(const char *so_name);
 MapItemInfo getSoBaseAddressByNameAndAddr(const char *so_name, void* address);
 MapItemInfo getSoBaseAddressFromAddress(void* address);
 

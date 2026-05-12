@@ -19,8 +19,6 @@ bool g_runtime_initialized = false;
 bool g_trace_started = false;
 string g_last_error;
 
-const char* kTargetLibDir = "/data/local/tmp/";
-
 void setLastError(const string& message)
 {
     g_last_error = message;
@@ -169,10 +167,9 @@ bool startTrace()
         return false;
     }
 
-    string target_lib_path = string(kTargetLibDir) + g_trace_config.target_lib;
-    auto soinfo = getSoBaseAddress(target_lib_path.c_str(), g_trace_config.target_lib.c_str());
+    auto soinfo = getLoadedSoInfoByName(g_trace_config.target_lib.c_str());
     if (soinfo.start == 0) {
-        setLastError("未找到目标 so: " + g_trace_config.target_lib);
+        setLastError("未找到已加载目标 so: " + g_trace_config.target_lib);
         return false;
     }
 

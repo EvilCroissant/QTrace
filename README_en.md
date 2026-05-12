@@ -128,13 +128,12 @@ Root is required. It is recommended to disable SELinux enforcement first:
 adb shell 'su -c setenforce 0'
 ```
 
-### 2. Push both the target library and QTrace library
+### 2. Push the QTrace library
 
-The current implementation resolves target library info from `/data/local/tmp/`, so the target library must also be pushed there:
+The current version only requires `libnativelib.so` to be pushed to `/data/local/tmp/`. The target library no longer needs a duplicate copy in tmp, because QTrace now resolves it directly from the already loaded module ranges inside the process.
 
 ```bash
 adb push libnativelib.so /data/local/tmp/libnativelib.so
-adb push <target.so> /data/local/tmp/<target.so>
 ```
 
 ### 3. Edit `inject.js`
@@ -232,7 +231,10 @@ if (soname.includes("libmsaoaidsec.so")) {
 
 ### `target so not found`
 
-The current implementation reads target library metadata from `/data/local/tmp/<target_lib>`. Make sure the target library has been pushed there.
+The current implementation requires the target library to already be loaded by the target process. Check:
+
+- whether `target_lib` matches the real loaded module name
+- whether the target library has already been loaded at the moment tracing starts
 
 ### `trace 已经启动，不能再更新配置`
 

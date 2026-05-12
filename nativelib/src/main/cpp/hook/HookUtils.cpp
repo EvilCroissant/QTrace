@@ -428,6 +428,107 @@ MapItemInfo getSoBaseAddress(const char *libpath, const char *name) {
     return info;
 }
 
+MapItemInfo getLoadedSoInfoByName(const char *so_name) {
+    MapItemInfo info{0, 0, 0};
+    if (so_name == nullptr || so_name[0] == '\0') {
+        return info;
+    }
+
+    FILE *fp = fopen("/proc/self/maps", "r");
+    if (fp == nullptr) {
+        LOGE("Can't open /proc/self/maps");
+        return info;
+    }
+
+    char *line = nullptr;
+    size_t len = 0;
+    std::string matched_path;
+    size_t base_start = 0;
+    size_t max_end = 0;
+
+    while (getline(&line, &len, fp) != -1) {
+        size_t start = 0;
+        size_t end = 0;
+        char perms[16] = {0};
+        char offset_text[32] = {0};
+        char dev[16] = {0};
+        char inode[32] = {0};
+        char pathname[PATH_MAX] = {0};
+        int fields = sscanf(line, "%lx-%lx %15s %31s %15s %31s %[^\n]",
+                            &start, &end, perms, offset_text, dev, inode, pathname);
+        if (fields < 7 || pathname[0] == '\0') {
+            continue;
+        }
+
+        const char* basename = strrchr(pathname, '/');
+        basename = basename == nullptr ? pathname : basename + 1;
+        if (strcmp(basename, so_name) != 0) {
+            continue;
+        }
+
+        if (matched_path.empty()) {
+            matched_path = pathname;
+        }
+        if (matched_path != pathname) {
+            continue;
+        }
+
+        size_t offset = strtoull(offset_text, nullptr, 16);
+        if (offset == 0 && (base_start == 0 || start < base_start)) {
+            base_start = start;
+        }
+        if (end > max_end) {
+            max_end = end;
+        }
+    }
+
+    fclose(fp);
+    if (line != nullptr) {
+        free(line);
+    }
+
+    if (matched_path.empty() || max_end == 0) {
+        LOGE("loaded so not found: %s", so_name);
+        return info;
+    }
+
+    if (base_start == 0) {
+        LOGE("loaded so %s has no offset-0 map, fallback to first match", so_name);
+        FILE *retry = fopen("/proc/self/maps", "r");
+        if (retry != nullptr) {
+            char *retry_line = nullptr;
+            size_t retry_len = 0;
+            while (getline(&retry_line, &retry_len, retry) != -1) {
+                size_t start = 0;
+                size_t end = 0;
+                char pathname[PATH_MAX] = {0};
+                int fields = sscanf(retry_line, "%lx-%lx %*s %*s %*s %*s %[^\n]",
+                                    &start, &end, pathname);
+                if (fields >= 3 && matched_path == pathname) {
+                    base_start = start;
+                    break;
+                }
+            }
+            fclose(retry);
+            if (retry_line != nullptr) {
+                free(retry_line);
+            }
+        }
+    }
+
+    if (base_start == 0) {
+        LOGE("failed to resolve base address for loaded so: %s", so_name);
+        return info;
+    }
+
+    info.start = base_start;
+    info.end = max_end;
+    info.size = max_end - base_start;
+    LOGE("loaded so:%s,path:%s,range:%lx-%lx,size:%lx",
+         so_name, matched_path.c_str(), info.start, info.end, info.size);
+    return info;
+}
+
 MapItemInfo getSoBaseAddressFromAddress(void* address) {
     MapItemInfo soinfo = {0,0};
     size_t addr = reinterpret_cast<size_t>(address);

@@ -140,13 +140,12 @@ nativelib/build/intermediates/stripped_native_libs/debug/out/lib/arm64-v8a/libna
 adb shell 'su -c setenforce 0'
 ```
 
-### 2. 推送目标 so 和 QTrace so
+### 2. 推送 QTrace so
 
-当前实现会从 `/data/local/tmp/` 读取目标 so，因此需要把目标 so 也放过去：
+当前版本只需要把 `libnativelib.so` 推到 `/data/local/tmp/`。目标 so 不需要再额外复制一份到 tmp，QTrace 会直接从进程里已加载模块的地址范围定位目标库。
 
 ```bash
 adb push libnativelib.so /data/local/tmp/libnativelib.so
-adb push <target.so> /data/local/tmp/<target.so>
 ```
 
 ### 3. 配置 `inject.js`
@@ -244,7 +243,10 @@ if (soname.includes("libmsaoaidsec.so")) {
 
 ### `未找到目标 so`
 
-当前实现会从 `/data/local/tmp/<target_lib>` 读取目标 so 信息。请确认目标 so 已 push 到 `/data/local/tmp/`。
+当前实现要求目标 so 已经被目标进程加载。请确认：
+
+- `target_lib` 名称和运行时已加载模块名一致
+- 目标函数所在 so 的确已经在当前时刻完成加载
 
 ### `trace 已经启动，不能再更新配置`
 
